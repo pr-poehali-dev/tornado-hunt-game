@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
+import MissionEngine from "@/components/MissionEngine";
+import type { VehicleStats } from "@/components/MissionEngine";
 
 const HERO_IMG = "https://cdn.poehali.dev/projects/1a2e690e-2c64-40c3-8b34-f39bce441128/files/9d2c028e-bad3-4453-b5c1-646a85a311ae.jpg";
 const WORKSHOP_IMG = "https://cdn.poehali.dev/projects/1a2e690e-2c64-40c3-8b34-f39bce441128/files/4254380a-8ce9-49d5-afb0-f4af12a5deac.jpg";
@@ -252,6 +254,8 @@ type Section = "hero" | "campaign" | "garage";
 export default function Index() {
   const [activeSection, setActiveSection] = useState<Section>("hero");
   const [selectedMission, setSelectedMission] = useState(1);
+  const [activeMissionId, setActiveMissionId] = useState<number | null>(null);
+  const [totalXp, setTotalXp] = useState(0);
   const [heroVisible, setHeroVisible] = useState(false);
   const [windSpeed, setWindSpeed] = useState(247);
   const [dustCount] = useState(() => Array.from({ length: 12 }, (_, i) => i));
@@ -315,6 +319,15 @@ export default function Index() {
 
   const mission = MISSIONS.find(m => m.id === selectedMission)!;
   const activeCatData = MOD_CATEGORIES.find(c => c.id === activeBuildTab)!;
+
+  // Передаём характеристики машины в движок миссий
+  const vehicleStats: VehicleStats = {
+    armor: Math.min(100, computedStats.armor),
+    speed: Math.min(100, computedStats.speed),
+    handling: Math.min(100, handling),
+    hasProbe: selectedMods.sensors !== "none",
+    hasAnchor: selectedMods.anchor !== "none",
+  };
 
   const nav = [
     { id: "hero" as Section, label: "ГЛАВНАЯ", icon: "Home" },
@@ -439,7 +452,20 @@ export default function Index() {
       )}
 
       {/* ===================== CAMPAIGN ===================== */}
-      {activeSection === "campaign" && (
+      {activeSection === "campaign" && activeMissionId !== null && (
+        <section className="min-h-screen pt-16 pb-20" style={{ background: "rgba(10,7,5,1)" }}>
+          <MissionEngine
+            missionId={activeMissionId}
+            vehicle={vehicleStats}
+            onExit={({ xp }) => {
+              setTotalXp(p => p + xp);
+              setActiveMissionId(null);
+            }}
+          />
+        </section>
+      )}
+
+      {activeSection === "campaign" && activeMissionId === null && (
         <section className="min-h-screen pt-20 px-8 pb-20">
           <div className="max-w-6xl mx-auto">
             <div className="flex items-end justify-between mb-8 pt-8">
@@ -618,16 +644,14 @@ export default function Index() {
                     </div>
 
                     <div className="flex gap-3">
-                      {mission.status !== "locked" ? (
-                        <button className={mission.isTragedy
+                      <button
+                        className={mission.isTragedy
                           ? "flex-1 py-3 text-sm border border-red-800/50 text-red-400 hover:border-red-600 transition-all duration-200"
                           : "btn-storm flex-1 py-3 text-sm"}
-                          style={!mission.isTragedy ? {} : { fontFamily: "'Oswald', sans-serif", letterSpacing: "0.12em", background: "rgba(220,38,38,0.1)" }}>
-                          {mission.status === "completed" ? "▶ ПРОЙТИ СНОВА" : mission.isTragedy ? "▶ ВОЙТИ В СОБЫТИЕ" : "▶ НАЧАТЬ МИССИЮ"}
-                        </button>
-                      ) : (
-                        <button className="btn-outline-storm flex-1 py-3 text-sm opacity-50 cursor-not-allowed" disabled>🔒 ЗАБЛОКИРОВАНО</button>
-                      )}
+                        style={!mission.isTragedy ? {} : { fontFamily: "'Oswald', sans-serif", letterSpacing: "0.12em", background: "rgba(220,38,38,0.1)" }}
+                        onClick={() => setActiveMissionId(mission.id)}>
+                        {mission.isTragedy ? "▶ ВОЙТИ В СОБЫТИЕ" : "▶ НАЧАТЬ МИССИЮ"}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -935,7 +959,7 @@ export default function Index() {
         style={{ background: "rgba(10,7,5,0.92)", backdropFilter: "blur(8px)" }}>
         <div className="flex items-center gap-6">
           {[
-            { label: "XP", value: "3,600", color: "text-orange-400" },
+            { label: "XP", value: totalXp.toLocaleString(), color: "text-orange-400" },
             { label: "РАНГ", value: "ОХОТНИК", color: "text-stone-300" },
             { label: "ПЕРЕХВАТЧИК", value: `${car.name} / ${getSurvivalLabel().label}`, color: getSurvivalLabel().color },
           ].map(item => (
